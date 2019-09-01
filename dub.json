@@ -1,0 +1,9 @@
+{
+    "name": "dogical",
+    "dependencies": {
+        "derelict-sdl2": "~>2.1.4",
+        "colorize": "1.0.5"
+    },
+    "targetPath": "bin",
+    "description": "A logic simulator in D"
+}
