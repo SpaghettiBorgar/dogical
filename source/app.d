@@ -3,6 +3,7 @@ import std.string;
 import std.conv : to;
 import derelict.sdl2.sdl;
 import colorize;
+import util;
 
 /// Exception for SDL related issues
 class SDLException : Exception
@@ -17,6 +18,11 @@ class SDLException : Exception
 bool quit;
 SDL_Window* window;
 SDL_Renderer* renderer;
+Point windowSize = Point(800, 600);
+Point mouse;
+Point view;
+int zoom = 0;
+float scale = 1;
 
 void main()
 {
@@ -27,7 +33,7 @@ void main()
 		throw new SDLException();
 
 	window = SDL_CreateWindow("dogical", SDL_WINDOWPOS_UNDEFINED,
-			SDL_WINDOWPOS_UNDEFINED, 800, 600, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
+			SDL_WINDOWPOS_UNDEFINED, windowSize.x, windowSize.y, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
 	if (!window)
 		throw new SDLException();
 
@@ -36,6 +42,8 @@ void main()
 	if (!renderer)
 		throw new SDLException();
 	renderer.SDL_SetRenderDrawBlendMode(SDL_BLENDMODE_BLEND);
+
+	SDL_GetMouseState(&mouse.x, &mouse.y);
 
 	log("Entering program loop");
 	while (!quit)
@@ -50,6 +58,26 @@ void main()
 	SDL_DestroyWindow(window);
 
 	SDL_Quit();
+}
+
+Point toGrid(Point p)
+{
+	return (p + view - windowSize / 2) / scale;
+}
+
+Point toView(Point p)
+{
+	return p * scale - view + windowSize / 2;
+}
+
+SDL_Rect* toView(Rect r)
+{
+	return Rect(r.origin.toView, r.size * scale).toSDL;
+}
+
+SDL_Rect* toGrid(Rect r)
+{
+	return Rect(r.origin.toGrid, r.size / scale).toSDL;
 }
 
 enum LogLevel
@@ -112,15 +140,22 @@ void update()
 
 void draw()
 {
-	renderer.SDL_SetRenderDrawColor(0, 0, 0, 255);
+	renderer.SDL_SetRenderColor(COLOR_BLACK);
 	renderer.SDL_RenderClear();
+
+	renderer.SDL_SetRenderColor(COLOR_WHITE);
+	renderer.SDL_RenderFillRect(Rect(-50, -50, 100, 100).toView);
 
 	renderer.SDL_RenderPresent();
 }
 
 void onMouseMotion(SDL_MouseMotionEvent event)
 {
-
+	mouse = Point(event.x, event.y);
+	if (event.state & SDL_BUTTON_MMASK)
+	{
+		view -= Point(event.xrel, event.yrel);
+	}
 }
 
 void onMouseDown(SDL_MouseButtonEvent event)
@@ -135,7 +170,13 @@ void onMouseUp(SDL_MouseButtonEvent event)
 
 void onMouseWheel(SDL_MouseWheelEvent event)
 {
-
+	import std.math : pow;
+	Point oldPoint = mouse.toGrid;
+	zoom += event.y;
+	auto prevScale = scale;
+	scale = pow(1.1, zoom);
+	Point newPoint = mouse.toGrid;
+	view += (oldPoint - newPoint) * scale;	//finally...
 }
 
 void onKeyDown(SDL_KeyboardEvent event)
