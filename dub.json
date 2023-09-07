@@ -1,0 +1,12 @@
+{
+	"dependencies": {
+		"bindbc-sdl": "~>1.0.1",
+		"derelict-sdl2": "~>2.1.4",
+		"derelict-sdl2_gfx": "~>1.0.0"
+	},
+	"versions": [
+		"SDL_2012",
+		"SDL_TTF"
+	],
+	"name": "dogical"
+}
