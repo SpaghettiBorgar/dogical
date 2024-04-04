@@ -1,2 +1,0 @@
-module component.rootwindow;
-

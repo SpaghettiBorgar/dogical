@@ -2,38 +2,23 @@ module ui.element;
 
 import geometry;
 import render;
+import settings;
 import std.math.traits;
 import std.algorithm.comparison : min, max, clamp;
 
 struct Anchor
 {
-
 	float xAlign; // -1 to 1, relative position to parent
 	float yAlign;
 
-	private real _clamp(real val, real lower, real upper)
+	real calcX(real sizeP)
 	{
-		return clamp(val, min(lower, upper), max(lower, upper));
+		return (xAlign + 1) / 2 * sizeP;
 	}
 
-	real calcXcenter(real sizeE, real sizeP)
+	real calcY(real sizeP)
 	{
-		return _clamp((xAlign + 1) / 2 * sizeP, sizeE / 2, sizeP - sizeE / 2);
-	}
-
-	real calcYcenter(real sizeE, real sizeP)
-	{
-		return _clamp((yAlign + 1) / 2 * sizeP, sizeE / 2, sizeP - sizeE / 2);
-	}
-
-	real calcX(real sizeE, real sizeP)
-	{
-		return calcXcenter(sizeE, sizeP) - sizeE / 2;
-	}
-
-	real calcY(real sizeE, real sizeP)
-	{
-		return calcYcenter(sizeE, sizeP) - sizeE / 2;
+		return (yAlign + 1) / 2 * sizeP;
 	}
 }
 
@@ -63,31 +48,35 @@ struct Size
 }
 
 immutable Anchor ANCHOR_CENTER = Anchor(0, 0);
+immutable Anchor ANCHOR_NAN = Anchor(real.nan, real.nan);
 
 public abstract class Element
 {
 	immutable string _name = "Element";
 
 	Element parent;
-	Anchor _anchor;
+	Anchor _positionAnchor;
+	Anchor _attachmentAnchor;
 
-	Size sWidth, sHeight;
-
-	protected real _width; // NaN indicates dynamic sizing, real value means fixed size
+	protected real _width; // // NaN indicates dynamic sizing, real value means fixed size
 	protected real _height;
-	protected real _x; // NaN indicates dynamic position by anchor, real value means fixed relative position
+	protected real _x; // NaN indicates dynamic position by position anchor, real value means fixed relative position
 	protected real _y;
 
-	this(Size sWidth = Size.init, Size sHeight = Size.init, Anchor anchor = ANCHOR_CENTER)
+	this(Anchor pos = ANCHOR_CENTER, Anchor attach = ANCHOR_CENTER)
 	{
-		this.sWidth = sWidth;
-		this.sHeight = sHeight;
-		this.anchor = anchor;
+		this._positionAnchor = Anchor(real.nan, real.nan);
+		this._attachmentAnchor = Anchor(-1, -1);
+	}
+
+	this(Point pos, Anchor attach = ANCHOR_CENTER)
+	{
+		this(ANCHOR_NAN, attach);
+		this.pos = pos;
 	}
 
 	@property real width()
 	{
-		// return isNaN(_width) ? 200 : _width;
 		return _width;
 	}
 
@@ -98,7 +87,6 @@ public abstract class Element
 
 	@property real height()
 	{
-		// return isNaN(_height) ? 200 : _height;
 		return _height;
 	}
 
@@ -109,29 +97,62 @@ public abstract class Element
 
 	@property real x()
 	{
-		return isNaN(anchor.xAlign) ? _x : parent.x + anchor.calcX(this.width, parent.width);
+		return _x;
 	}
 
 	@property void x(real x)
 	{
 		_x = x;
-		_anchor.xAlign = real.nan;
+		_positionAnchor.xAlign = real.nan;
+	}
+
+	@property real realX()
+	{
+		return parent.virtX
+			+ (isNaN(this._positionAnchor.xAlign)
+					? _x
+					: _positionAnchor.calcX(parent.width))
+			- _attachmentAnchor.calcX(this.width);
+	}
+
+	@property real virtX()
+	{
+		return realX;
 	}
 
 	@property real y()
 	{
-		return isNaN(anchor.yAlign) ? _y : parent.y + anchor.calcY(this.height, parent.height);
+		return _y;
 	}
 
 	@property void y(real y)
 	{
 		_y = y;
-		_anchor.yAlign = real.nan;
+		_positionAnchor.yAlign = real.nan;
 	}
 
-	@property Point pos()
+	@property real realY()
 	{
-		return Point(x, y);
+		return parent.virtY
+			+ (isNaN(this._positionAnchor.yAlign)
+					? _y
+					: _positionAnchor.calcY(parent.height))
+			- _attachmentAnchor.calcY(this.height);
+	}
+
+	@property real virtY()
+	{
+		return realY;
+	}
+
+	@property Point realPos()
+	{
+		return Point(realX, realY);
+	}
+
+	@property Point virtPos()
+	{
+		return Point(virtX, virtY);
 	}
 
 	@property void pos(Point p)
@@ -151,21 +172,49 @@ public abstract class Element
 		height = p.y;
 	}
 
-	@property Anchor anchor()
+	@property Rect boundingRect()
 	{
-		return this._anchor;
+		return Rect(realPos, width, height);
 	}
 
-	@property void anchor(Anchor a)
+	@property void boundingRect(Rect r)
 	{
-		this._anchor = a;
+		this.pos = r.pos;
+		this.size = r.size;
+	}
+
+	@property Anchor relPos()
+	{
+		return this._positionAnchor;
+	}
+
+	@property void relPos(Anchor a)
+	{
+		this._positionAnchor = a;
 		if (!isNaN(a.xAlign))
 			_x = real.nan;
 		if (!isNaN(a.yAlign))
 			_y = real.nan;
 	}
 
-	void draw(Renderer);
+	@property Anchor attachment()
+	{
+		return this._attachmentAnchor;
+	}
+
+	@property void attachment(Anchor a)
+	{
+		this._attachmentAnchor = a;
+	}
+
+	abstract protected void _draw(Renderer);
+
+	void draw(Renderer r)
+	{
+		_draw(r);
+		if (settings.debugMode)
+			drawDebug(r);
+	}
 
 	void drawDebug(Renderer r)
 	{
@@ -173,20 +222,21 @@ public abstract class Element
 
 		import std.format;
 
-		draw(r);
-		r.rect(Rect(x, y, width, height), WHITE, false);
+		r.rect(boundingRect, WHITE, false);
 		if (width > 80)
 		{
-			r.text(format!"%s"(this.toString), pos + Point(size.x, 0) / 2,
+			r.text(format!"%s"(this.toString), realPos + Point(size.x, 0) / 2,
 				FONT_DEBUG, WHITE, TextAlignment.TOPCENTER);
-			r.text(format!"(%.1f %.1f)"(x, y), pos,
+			r.text(format!"%.0f %.0f"(realX, realY), realPos,
 				FONT_DEBUG, WHITE, TextAlignment.TOPLEFT);
-			r.text(format!"[%.1fx%.1f]"(width, height), pos + size,
+			r.text(format!"%.0fx%.0f"(width, height), realPos + size,
 				FONT_DEBUG, WHITE, TextAlignment.BOTTOMRIGHT);
 		}
+		r.pixel(realPos, COLOR_RED);
+		r.pixel(realPos + Point(attachment.calcX(width), attachment.calcY(height)), COLOR_GREEN);
 	}
 
-	override string toString()
+	override string toString() const
 	{
 		import std.string;
 

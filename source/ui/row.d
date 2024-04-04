@@ -4,6 +4,7 @@ import ui;
 
 class Row : Container
 {
+	/*
 	void update()
 	{
 		import std.algorithm;
@@ -46,4 +47,5 @@ class Row : Container
 			}
 		}
 	}
+	*/
 }

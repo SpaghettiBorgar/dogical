@@ -10,4 +10,5 @@ public
 	import ui.gridcontainer;
 	import ui.row;
 	import ui.column;
+	import ui.dot;
 }

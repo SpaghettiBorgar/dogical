@@ -1,15 +1,18 @@
 module component.pin;
 
 import ui.box;
+import ui.element;
 import component;
 import settings;
 import color;
 
 class Pin : Box
 {
+	immutable string _name = "Pin";
+
 	this(Component comp, ulong index)
 	{
-		super(COLOR_INACTIVE, null);
+		super(ANCHOR_NAN, COLOR_INACTIVE, null, 8, 8);
 		this.comp = comp;
 		this.index = index;
 	}
@@ -36,7 +39,7 @@ class Output : Pin
 	}
 
 	bool state;
-	bool opCast(T : bool)()
+	bool opCast(T : bool)() const
 	{
 		return state;
 	}
@@ -51,7 +54,7 @@ class Input : Pin
 	}
 
 	Output source;
-	bool opCast(T : bool)()
+	bool opCast(T : bool)() const
 	{
 		return source != null && source.state;
 	}

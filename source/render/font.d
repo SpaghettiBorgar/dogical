@@ -48,8 +48,9 @@ TTF_Font* getFont(Font font)
 
 	if (!(font in fontCache))
 		fontCache[font] = TTF_OpenFont(("res/fonts/" ~ font.name ~ ".ttf").toStringz, font.size);
-	if (!fontCache[font])
+	if (!fontCache[font] || fontCache[font] is null)
 		throw new SDLException;
+
 	return fontCache[font];
 }
 

@@ -10,23 +10,30 @@ import std.math.traits;
 
 class Box : Element
 {
+	immutable string _name = "Box";
+
 	Color bgcolor;
 	Color bordercolor;
 	Label label;
 
-	this(Color bgcolor, string label, Color bordercolor, Size sWidth, Size sHeight, Anchor anchor = ANCHOR_CENTER)
+	this(Anchor pos = ANCHOR_CENTER, Color bgcolor, string label, real width = real.nan, real height = real.nan,
+		Anchor attach = ANCHOR_CENTER, Color bordercolor = TRANSPARENT)
 	{
-		super(sWidth, sHeight, anchor);
+		super(pos, attach);
 		this.bgcolor = bgcolor;
-		this.bordercolor = bordercolor;
 		this.label = new Label(label);
 		this.label.parent = this;
-		this.label.anchor = Anchor(0, 0.5);
+		this.label.relPos = Anchor(0, 0.5);
+		real defaultSize = max(this.label.width, this.label.height, 100);
+		this.width = isNaN(width) ? defaultSize : width;
+		this.height = isNaN(height) ? defaultSize : height;
 	}
 
-	this(Color bgcolor, string label, Size sWidth = Size.init, Size sHeight = Size.init, Anchor anchor = ANCHOR_CENTER)
+	this(Point pos, Color bgcolor, string label, real width = real.nan, real height = real.nan,
+		Anchor attach = ANCHOR_CENTER, Color bordercolor = TRANSPARENT)
 	{
-		this(bgcolor, label, bgcolor, sWidth, sHeight, anchor);
+		this(ANCHOR_NAN, bgcolor, label, width, height, attach, bordercolor);
+		this.pos = pos;
 	}
 
 	override @property real width()
@@ -52,13 +59,13 @@ class Box : Element
 		// label.height = h;
 	}
 
-	override void draw(Renderer r)
+	override void _draw(Renderer r)
 	{
 		import std.stdio;
 
-		writefln!"%f %f %f %f"(x, y, width, height);
-		r.rect(Rect(this.x, this.y, this.width, this.height), bgcolor, true);
-		r.rect(Rect(this.x, this.y, this.width, this.height), bordercolor, false);
+		// writefln!"%f %f %f %f"(realX, realY, width, height);
+		r.rect(Rect(realX, realY, this.width, this.height), bgcolor, true);
+		r.rect(Rect(realX, realY, this.width, this.height), bordercolor, false);
 		label.draw(r);
 	}
 

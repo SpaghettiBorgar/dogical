@@ -7,10 +7,6 @@ import std.algorithm.comparison : max, min, clamp;
 import std.stdio;
 import std.string;
 
-// import derelict.sdl2.sdl;
-// import derelict.sdl2.ttf;
-//import derelict.sdl2.gfx;
-
 import bindbc.sdl;
 import bindbc.sdl.ttf;
 
@@ -20,6 +16,7 @@ import color;
 import geometry;
 import component.component;
 import render.font;
+import std.range.primitives;
 
 enum TextAlignment
 {
@@ -34,6 +31,17 @@ enum TextAlignment
 	BOTTOMRIGHT = tuple(1, 1)
 }
 
+struct Transform
+{
+	Point offs;
+	real scale;
+
+	auto opBinary(string op : "*")(const Transform rhs) const
+	{
+		return Transform(this.offs - rhs.offs, scale);
+	}
+}
+
 class Renderer
 {
 
@@ -45,6 +53,8 @@ class Renderer
 	real zoom = 0;
 	real scale = 1;
 	Point* windowSize;
+	SDL_Rect[] clipStack;
+	Transform[] transformStack;
 
 	this(SDL_Renderer* sdlr)
 	{
@@ -52,12 +62,18 @@ class Renderer
 		if (!sdlr)
 			throw new SDLException();
 		this.sdlr = sdlr;
+		SDL_SetRenderDrawBlendMode(this.sdlr, SDL_BLENDMODE_BLEND);
+		transformStack ~= Transform(Point(0, 0), 1);
+	}
 
+	private void setColor(Color c)
+	{
+		sdlr.SDL_SetRenderDrawColor(c.r, c.g, c.b, c.a);
 	}
 
 	void prepare(Color bg)
 	{
-		sdlr.SDL_SetRenderDrawColor(bg.r, bg.g, bg.b, bg.a);
+		setColor(bg);
 		sdlr.SDL_RenderClear();
 	}
 
@@ -101,7 +117,12 @@ class Renderer
 		// writeln(r.x, " ", r.y, " ", r.w, " ", r.h, " ", c.r, " ", c.g, " ", c.b, " ", c.a);
 		if (!r.isDefined)
 			return;
-		sdlr.SDL_SetRenderDrawColor(c.r, c.g, c.b, c.a);
+		setColor(c);
+		// r = project(r);
+		r.pos = r.pos - transformStack.back.offs;
+		// r.x -= transformStack.back.xOff;
+		// r.y -= transformStack.back.yOff;
+
 		auto sr = cast(SDL_FRect) r;
 		if (fill)
 			sdlr.SDL_RenderFillRectF(&sr);
@@ -116,53 +137,54 @@ class Renderer
 
 	void line(Line line, Color c)
 	{
-		sdlr.SDL_SetRenderDrawColor(c.r, c.g, c.b, c.a);
+		setColor(c);
 		sdlr.SDL_RenderDrawLine(line.p1.x.to!int, line.p1.y.to!int, line.p2.x.to!int, line
 				.p2.y.to!int);
 	}
 
-	Rect componentRect(Component c)
-	{
-		return Rect(c.pos.x, c.pos.y, componentSize * 2, max(c.inputs.length, c.outputs.length, 2) * componentSize);
-	}
+	// Rect componentRect(Component c)
+	// {
+	// 	return Rect(c.pos.x, c.pos.y, componentSize * 2, max(c.inputs.length, c.outputs.length, 2) * componentSize);
+	// }
 
-	Rect inputRect(Component c, ulong i)
-	{
-		return Rect(c.pos.x - 8, c.pos.y + (max(c.inputs.length, c.outputs.length, 2) - c
-				.inputs.length) * componentSize / 2 + i * componentSize + componentSize / 2 - 4, 8, 8);
-	}
+	// Rect inputRect(Component c, ulong i)
+	// {
+	// 	return Rect(c.pos.x - 8, c.pos.y + (max(c.inputs.length, c.outputs.length, 2) - c
+	// 			.inputs.length) * componentSize / 2 + i * componentSize + componentSize / 2 - 4, 8, 8);
+	// }
 
-	Rect outputRect(Component c, ulong i)
-	{
-		return Rect(c.pos.x + componentSize * 2, c.pos.y + (max(c.inputs.length, c.outputs.length, 2) - c
-				.outputs.length) * componentSize / 2 + i * componentSize + componentSize / 2 - 4, 8, 8);
-	}
+	// Rect outputRect(Component c, ulong i)
+	// {
+	// 	return Rect(c.pos.x + componentSize * 2, c.pos.y + (max(c.inputs.length, c.outputs.length, 2) - c
+	// 			.outputs.length) * componentSize / 2 + i * componentSize + componentSize / 2 - 4, 8, 8);
+	// }
 
-	void component(Component c, bool selected = false)
-	{
-		auto inps = c.inputs.length;
-		auto outps = c.outputs.length;
-		auto maxh = max(inps, outps, 2);
-		auto minh = min(inps, outps, 2);
-		rect(project(Rect(c.pos, componentSize * 2, maxh * componentSize)), c.bgcolor, true);
-		if (selected)
-			rect(project(Rect(c.pos, componentSize * 2, maxh * componentSize)), COLOR_SELECTED, false);
-		foreach (i, inp; c.inputs)
-		{
-			rect(project(Rect(c.pos.x - 8, c.pos.y + (
-					maxh - inps) * componentSize / 2 + i * componentSize + componentSize / 2 - 4, 8, 8)), inp ? COLOR_ACTIVE : COLOR_INACTIVE, true);
-		}
-		foreach (i, outp; c.outputs)
-		{
-			rect(project(Rect(c.pos.x + componentSize * 2, c.pos.y + (
-					maxh - outps) * componentSize / 2 + i * componentSize + componentSize / 2 - 4, 8, 8)), outp ? COLOR_ACTIVE : COLOR_INACTIVE, true);
-		}
-		//text(c.label, project(Point(c.pos.x + componentSize, c.pos.y + componentSize * maxh)), Font(Fonts.DEFAULT, clamp(cast(int) ceil(16 * scale), 8, 64)), COLOR_COMPONENTTEXT, TextAlignment.TOPCENTER);
-		c.label.draw(this);
-	}
+	// void component(Component c, bool selected = false)
+	// {
+	// 	auto inps = c.inputs.length;
+	// 	auto outps = c.outputs.length;
+	// 	auto maxh = max(inps, outps, 2);
+	// 	auto minh = min(inps, outps, 2);
+	// 	rect(project(Rect(c.pos, componentSize * 2, maxh * componentSize)), c.bgcolor, true);
+	// 	if (selected)
+	// 		rect(project(Rect(c.pos, componentSize * 2, maxh * componentSize)), COLOR_SELECTED, false);
+	// 	foreach (i, inp; c.inputs)
+	// 	{
+	// 		rect(project(Rect(c.pos.x - 8, c.pos.y + (
+	// 				maxh - inps) * componentSize / 2 + i * componentSize + componentSize / 2 - 4, 8, 8)), inp ? COLOR_ACTIVE : COLOR_INACTIVE, true);
+	// 	}
+	// 	foreach (i, outp; c.outputs)
+	// 	{
+	// 		rect(project(Rect(c.pos.x + componentSize * 2, c.pos.y + (
+	// 				maxh - outps) * componentSize / 2 + i * componentSize + componentSize / 2 - 4, 8, 8)), outp ? COLOR_ACTIVE : COLOR_INACTIVE, true);
+	// 	}
+	// 	//text(c.label, project(Point(c.pos.x + componentSize, c.pos.y + componentSize * maxh)), Font(Fonts.DEFAULT, clamp(cast(int) ceil(16 * scale), 8, 64)), COLOR_COMPONENTTEXT, TextAlignment.TOPCENTER);
+	// 	c.label.draw(this);
+	// }
 
 	void text(string text, Point pos, Font font, Color c, TextAlignment alignment)
 	{
+		pos -= transformStack.back.offs;
 		TTF_Font* ttf_font = getFont(font);
 		TTF_SetFontHinting(ttf_font, TTF_HINTING_LIGHT);
 
@@ -189,5 +211,44 @@ class Renderer
 		TTF_SizeUTF8(ttf_font, text.toStringz, &w, &h);
 
 		return Point(w, h);
+	}
+
+	void pixel(int x, int y, Color c)
+	{
+		pixel(Point(x, y), c);
+	}
+
+	void pixel(Point pos, Color c)
+	{
+		pos -= transformStack.back.offs;
+		setColor(c);
+		sdlr.SDL_RenderDrawPointF(pos.x, pos.y);
+	}
+
+	void pushClip(Rect clip)
+	{
+		clip = Rect(clip.pos - transformStack.back.offs, clip.size);
+		if (!clipStack.empty)
+			clip = clip.intersection(Rect(clipStack.back));
+
+		clipStack ~= cast(SDL_Rect)(clip);
+		sdlr.SDL_RenderSetClipRect(&clipStack.back);
+	}
+
+	void popClip()
+	{
+		clipStack.popBack();
+		sdlr.SDL_RenderSetClipRect(clipStack.empty ? null : &clipStack.back);
+	}
+
+	void pushTransform(Point offset, real transform)
+	{
+		transformStack ~= transformStack.back * Transform(offset, scale);
+	}
+
+	void popTransform()
+	{
+		transformStack.popBack();
+		assert(!transformStack.empty);
 	}
 }

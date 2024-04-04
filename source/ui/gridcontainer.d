@@ -65,7 +65,7 @@ public class GridContainer : Container
 
 		foreach (i, e; elements)
 		{
-			e.anchor = Anchor(
+			e.relPos = Anchor(
 				((2 * (i % rows) + 1) / rows) - 1, (
 					(2 * floor(cast(real) i / columns) + 1) / columns) - 1
 			);

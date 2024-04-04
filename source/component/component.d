@@ -12,11 +12,13 @@ import std.math.traits;
 
 abstract class Component : Box
 {
+	immutable string _name = "Component";
+
 	bool selected;
 	Input[] inputs;
 	Output[] outputs;
-	GridContainer inputContainer;
-	GridContainer outputContainer;
+	Column inputContainer;
+	Column outputContainer;
 
 	final void addOutputs(bool[] bools...)
 	{
@@ -24,7 +26,6 @@ abstract class Component : Box
 		{
 			outputs ~= new Output(b, this, cast(int) outputs.length);
 			outputContainer.add(outputs[$ - 1]);
-			outputContainer.rows++;
 		}
 	}
 
@@ -34,21 +35,23 @@ abstract class Component : Box
 		{
 			inputs ~= new Input(o, this, inputs.length);
 			inputContainer.add(inputs[$ - 1]);
-			inputContainer.rows++;
 		}
 	}
 
-	this(string label, Color bgcolor, Point pos)
+	this(Point pos, string label, Color bgcolor = TRANSPARENT)
 	{
-		super(bgcolor, label);
+		super(pos, bgcolor, label, 80, 80);
 		this.pos = pos;
-		this.size = Point(80, 80);
-		inputContainer = new GridContainer(1, 1);
+		inputContainer = new Column();
 		inputContainer.parent = this;
 		inputContainer.size = Point(8, height);
-		outputContainer = new GridContainer(1, 1);
+		inputContainer.relPos = Anchor(-1, 0);
+		inputContainer.attachment = Anchor(0, 0);
+		outputContainer = new Column();
 		outputContainer.parent = this;
 		outputContainer.size = Point(8, height);
+		outputContainer.relPos = Anchor(1, 0);
+		outputContainer.attachment = Anchor(0, 0);
 	}
 
 	// override real height() @property
@@ -56,13 +59,14 @@ abstract class Component : Box
 	// return isNaN(this._height) ? max(inputContainer.height, outputContainer.height) : _height;
 	// }
 
-	override void draw(Renderer r)
+	override void _draw(Renderer r)
 	{
 		if (selected)
 			bordercolor = COLOR_SELECTED;
 		else
 			bordercolor = bgcolor;
-		super.draw(r);
+		super._draw(r);
+
 		inputContainer.draw(r);
 		outputContainer.draw(r);
 
@@ -83,12 +87,5 @@ abstract class Component : Box
 		// 	}
 		// 	text(c.label, project(Point(c.pos.x + componentSize, c.pos.y + componentSize * maxh)), Font(Fonts.DEFAULT, clamp(cast(int) ceil(16 * scale), 8, 64)), COLOR_COMPONENTTEXT, TextAlignment.TOPCENTER);
 
-	}
-
-	override void drawDebug(Renderer r)
-	{
-		super.drawDebug(r);
-		inputContainer.drawDebug(r);
-		outputContainer.drawDebug(r);
 	}
 }

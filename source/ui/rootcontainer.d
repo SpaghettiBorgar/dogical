@@ -1,6 +1,7 @@
 module ui.rootcontainer;
 
 import ui;
+import render;
 
 class RootContainer : Container
 {
@@ -20,6 +21,16 @@ class RootContainer : Container
 	}
 
 	override @property real y()
+	{
+		return 0;
+	}
+
+	override @property real realX()
+	{
+		return 0;
+	}
+
+	override @property real realY()
 	{
 		return 0;
 	}
@@ -50,9 +61,21 @@ class RootContainer : Container
 	{
 	}
 
-	override @property Anchor anchor()
+	override void drawDebug(Renderer r)
 	{
-		return ANCHOR_CENTER;
-	}
+		import color;
 
+		import std.format;
+
+		if (width > 80)
+		{
+			// r.text(format!"(%.1f %.1f)"(x, y), pos,
+			// 	FONT_DEBUG, WHITE, TextAlignment.TOPLEFT);
+			r.text(format!"[%.1fx%.1f]"(width, height), realPos + size,
+				FONT_DEBUG, WHITE, TextAlignment.BOTTOMRIGHT);
+		}
+		foreach (e; elements)
+			e.drawDebug(r);
+
+	}
 }

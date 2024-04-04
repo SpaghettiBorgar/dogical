@@ -9,7 +9,8 @@
 			"request": "launch",
 			"name": "Debug D project",
 			"cwd": "${workspaceFolder}",
-			"program": "dogical"
+			"program": "./dogical",
+			"debugger": "code-lldb"
 		}
 	]
 }

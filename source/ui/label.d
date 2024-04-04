@@ -30,7 +30,7 @@ public class Label : Element
 		return isNaN(_height) ? Renderer.textSize(text, font).y : _height;
 	}
 
-	override void draw(Renderer r)
+	override void _draw(Renderer r)
 	{
 		r.text(text, Point(x, y), font, color, TextAlignment.TOPLEFT);
 	}

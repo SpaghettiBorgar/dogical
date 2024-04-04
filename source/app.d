@@ -36,9 +36,12 @@ Container componentContainer;
 bool uiDebug = true;
 real fps = 0;
 
+Point tmpOffset1 = Point(0, 0);
+Point tmpOffset2 = Point(0, 0);
+
 void main()
 {
-	registerMemoryErrorHandler();
+	// registerMemoryErrorHandler();
 	// DerelictSDL2.load();
 	// DerelictSDL2ttf.load();
 
@@ -81,13 +84,17 @@ void main()
 	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
 
 	components = [
-		new AndGate(Point(1, 1)), new OrGate(Point(200, 100)),
-		new NotGate(Point(-100, -100))
+		// new AndGate(Point(1, 1)), new NotGate(Point(-100, -100)),
+		new OrGate(Point(200, 300))
 	];
 	componentContainer = new Container(cast(Element[]) components);
 	rootContainer = new RootContainer(&windowSize.x, &windowSize.y, componentContainer);
 
 	keyboardstate = SDL_GetKeyboardState(null);
+
+	foreach (code; "abcçd") {
+    	writeln(code);
+    }
 
 	bool quit = false;
 	SDL_Event event;
@@ -127,6 +134,7 @@ void main()
 			}
 		}
 
+		// drawUITest2();
 		// drawUITest();
 		draw();
 		frame++;
@@ -165,15 +173,15 @@ void drawUITest()
 	auto row = new Row();
 	row.size = rc.size;
 	row.height = 300;
-	auto b1 = new Box(Color(50, 40, 200), "some box", Size(1, 200, 600));
-	auto b2 = new Box(Color(200, 40, 50), "some larger box", Size(3, 200, 600));
-	auto b3 = new Box(Color(40, 200, 50), "box", Size(2, 100, 100));
+	// auto b1 = new Box(Color(50, 40, 200), "some box", Size(1, 200, 600));
+	// auto b2 = new Box(Color(200, 40, 50), "some larger box", Size(3, 200, 600));
+	// auto b3 = new Box(Color(40, 200, 50), "box", Size(2, 100, 100));
 	import std.algorithm;
 
-	[b1, b2, b3].each!(b => b.bordercolor = b.bgcolor.invert);
-	row.add(b1, b2, b3);
+	// [b1, b2, b3].each!(b => b.bordercolor = b.bgcolor.invert);
+	// row.add(b1, b2, b3);
 	rc.add(row);
-	row.update();
+	// row.update();
 	drawElement(rc);
 
 	r.text(fps.to!string, Point(windowSize.x, 0),
@@ -181,7 +189,66 @@ void drawUITest()
 
 	r.finalize();
 
-	[row, b1, b2, b3].each!destroy;
+	// [row, b1, b2, b3].each!destroy;
+
+	frames++;
+	if (sw.peek.total!"msecs" >= 1000)
+	{
+		fps = frames / (cast(real) sw.peek.total!"msecs" / 1000);
+		writeln(fps, " fps");
+		frames = 0;
+		sw.reset();
+	}
+}
+
+void drawUITest2()
+{
+
+	static int frames = 0;
+	static auto sw = StopWatch(AutoStart.no);
+	if (!sw.running)
+		sw.start();
+
+	r.prepare(settings.COLOR_BACKGROUND);
+
+	RootContainer rc = new RootContainer(&windowSize.x, &windowSize.y);
+	rc.bgcolor = COLOR_BACKGROUND;
+	auto g1 = new OrGate(Point(150, 200));
+	auto c2 = new Container(g1);
+	auto c1 = new Container(c2);
+	c1.bgcolor = COLOR_YELLOW.withAlpha(100);
+	c2.bgcolor = COLOR_CYAN.withAlpha(100);
+	c1.pos = Point(200, 100);
+	c1.size = Point(400, 400);
+	c2.pos = Point(100, 100);
+	c2.size = Point(300, 300);
+	c1.offset = tmpOffset1;
+	c2.offset = tmpOffset2;
+	// b1.pos = Point(250, 350);
+	// b1.size = Point(300, 200);
+	import std.algorithm;
+
+	// [b1].each!(b => b.bordercolor = b.bgcolor.invert);
+	rc.add(c1);
+	rc.draw(r);
+
+	Rect r1 = Rect(100, 200, 150, 250);
+	Rect r2 = Rect(50, 250, 120, 150);
+	Rect r3 = r1.intersection(r2);
+
+	r.rect(r1, COLOR_BLUE, true);
+	r.rect(r2, COLOR_RED, true);
+	r.rect(r3, COLOR_MAGENTA, true);
+
+	r.text(fps.to!string, Point(windowSize.x, 0),
+		Font(Fonts.CONSOLA, 20), Color(255, 255, 0), TextAlignment.TOPRIGHT);
+
+	r.text(mouse.to!string, Point(0, 0),
+		Font(Fonts.CONSOLA, 20), Color(200, 255, 255), TextAlignment.TOPLEFT);
+
+	r.finalize();
+
+	[rc, g1].each!destroy;
 
 	frames++;
 	if (sw.peek.total!"msecs" >= 1000)
@@ -216,10 +283,10 @@ void draw()
 		{
 			if (inp.source)
 			{
-				writeln(inp.source.comp.pos);
-				r.line(Line(r.project(r.inputRect(inp.comp, inp.index).middle),
-						r.project(r.outputRect(inp.source.comp, inp.source.index).middle)),
-					inp ? COLOR_ACTIVE : COLOR_INACTIVE);
+				writeln(inp.source.comp.virtPos);
+				// r.line(Line(r.project(r.inputRect(inp.comp, inp.index).middle),
+				// r.project(r.outputRect(inp.source.comp, inp.source.index).middle)),
+				// inp ? COLOR_ACTIVE : COLOR_INACTIVE);
 			}
 		}
 	}
@@ -232,84 +299,84 @@ void draw()
 void onMouseDown(SDL_MouseButtonEvent event)
 {
 	// mousestate = SDL_GetMouseState(&mouse.x, &mouse.y);
-	if (event.button == SDL_BUTTON_LEFT)
-	{
-		mouseclick = mouse;
-		bool hit = false;
-		foreach (ref c; components)
-		{
-			if (mouse.within(r.project(r.componentRect(c))))
-			{
-				hit = true;
-				if (!(keyboardstate[SDL_SCANCODE_LSHIFT] | keyboardstate[SDL_SCANCODE_RSHIFT]))
-					selectedComponents = [];
-				if (!selectedComponents.canFind(c))
-					selectedComponents ~= c;
-			}
-			else
-			{
-				foreach (i; 0 .. c.inputs.length)
-				{
-					if (mouse.within(r.project(r.inputRect(c, i))))
-					{
-						selectedInput = c.inputs[i];
-						hit = true;
-						selectedComponents = [];
-					}
-				}
-				foreach (i; 0 .. c.outputs.length)
-				{
-					if (mouse.within(r.project(r.outputRect(c, i))))
-					{
-						selectedOutput = c.outputs[i];
-						hit = true;
-						selectedComponents = [];
-					}
-				}
-			}
-		}
-		if (!hit)
-			selectedComponents = [];
-	}
+	// if (event.button == SDL_BUTTON_LEFT)
+	// {
+	// 	mouseclick = mouse;
+	// 	bool hit = false;
+	// 	foreach (ref c; components)
+	// 	{
+	// 		if (mouse.within(r.project(r.componentRect(c))))
+	// 		{
+	// 			hit = true;
+	// 			if (!(keyboardstate[SDL_SCANCODE_LSHIFT] | keyboardstate[SDL_SCANCODE_RSHIFT]))
+	// 				selectedComponents = [];
+	// 			if (!selectedComponents.canFind(c))
+	// 				selectedComponents ~= c;
+	// 		}
+	// 		else
+	// 		{
+	// 			foreach (i; 0 .. c.inputs.length)
+	// 			{
+	// 				if (mouse.within(r.project(r.inputRect(c, i))))
+	// 				{
+	// 					selectedInput = c.inputs[i];
+	// 					hit = true;
+	// 					selectedComponents = [];
+	// 				}
+	// 			}
+	// 			foreach (i; 0 .. c.outputs.length)
+	// 			{
+	// 				if (mouse.within(r.project(r.outputRect(c, i))))
+	// 				{
+	// 					selectedOutput = c.outputs[i];
+	// 					hit = true;
+	// 					selectedComponents = [];
+	// 				}
+	// 			}
+	// 		}
+	// 	}
+	// 	if (!hit)
+	// 		selectedComponents = [];
+	// }
 }
 
 void onMouseUp(SDL_MouseButtonEvent event)
 {
 	// mousestate = SDL_GetMouseState(&mouse.x, &mouse.y);
-	if (event.button == SDL_BUTTON_LEFT)
-	{
-		foreach (ref c; components)
-		{
-			if (selectedOutput)
-			{
-				foreach (i; 0 .. c.inputs.length)
-				{
-					if (mouse.within(r.project(r.inputRect(c, i))))
-					{
-						selectedInput = c.inputs[i];
-						selectedComponents = [];
-						selectedInput.source = selectedOutput;
-						writeln(selectedInput);
-						writeln(selectedOutput);
-					}
-				}
-			}
-			else if (selectedInput)
-			{
-				foreach (i; 0 .. c.outputs.length)
-				{
-					if (mouse.within(r.project(r.outputRect(c, i))))
-					{
-						selectedOutput = c.outputs[i];
-						selectedComponents = [];
-						selectedInput.source = selectedOutput;
-					}
-				}
-			}
-		}
-		selectedInput = null;
-		selectedOutput = null;
-	}
+	// if (event.button == SDL_BUTTON_LEFT)
+	// {
+	// 	foreach (ref c; components)
+	// 	{
+	// 		if (selectedOutput)
+	// 		{
+	// 			foreach (i; 0 .. c.inputs.length)
+	// 			{
+	// 				if (mouse.within(r.project(r.inputRect(c, i))))
+	// 				{
+	// 					selectedInput = c.inputs[i];
+	// 					selectedComponents = [];
+	// 					selectedInput.source = selectedOutput;
+	// 					writeln(selectedInput);
+	// 					writeln(selectedOutput);
+	// 				}
+	// 			}
+	// 		}
+	// 		else if (selectedInput)
+	// 		{
+	// 			foreach (i; 0 .. c.outputs.length)
+	// 			{
+	// 				if (mouse.within(r.project(r.outputRect(c, i))))
+	// 				{
+	// 					selectedOutput = c.outputs[i];
+	// 					selectedComponents = [];
+	// 					selectedInput.source = selectedOutput;
+	// 				}
+	// 			}
+	// 		}
+	// 	}
+	// 	selectedInput = null;
+	// 	selectedOutput = null;
+	// }
 }
 
 void onMouseMotion(SDL_MouseMotionEvent event)
@@ -322,10 +389,15 @@ void onMouseMotion(SDL_MouseMotionEvent event)
 	}
 	else if (event.state & SDL_BUTTON_LMASK)
 	{
+		// tmpOffset1 -= Point(event.xrel, event.yrel);
 		foreach (ref c; selectedComponents)
 		{
-			c.pos += Point(event.xrel / r.scale, event.yrel / r.scale);
+			c.virtPos += Point(event.xrel / r.scale, event.yrel / r.scale);
 		}
+	}
+	else if (event.state & SDL_BUTTON_RMASK)
+	{
+		// tmpOffset2 -= Point(event.xrel, event.yrel);
 	}
 }
 
@@ -353,7 +425,7 @@ void onKeyDown(SDL_KeyboardEvent event)
 		quit();
 		break;
 	case SDLK_F3:
-		uiDebug = !uiDebug;
+		debugMode = !debugMode;
 		break;
 	default:
 	}
